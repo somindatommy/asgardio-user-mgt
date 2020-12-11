@@ -66,7 +66,6 @@
                             org.osgi.service.component; version="${osgi.service.component.imp.pkg.version.range}",
                             org.wso2.carbon.user.api; version="${carbon.user.api.imp.pkg.version.range}",
                             org.wso2.carbon.user.core.*; version="${carbon.kernel.package.import.version.range}",
-                            org.wso2.carbon.tenant.mgt.*; version="${carbon.multitenancy.imp.pkg.version}",
                             org.apache.commons.logging.*; version="${commons-logging.osgi.version.range}",
                             org.apache.commons.lang.*;
                         </Import-Package>
