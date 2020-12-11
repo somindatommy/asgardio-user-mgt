@@ -27,6 +27,8 @@ public enum ErrorMessage {
             "Association type cannot be empty"),
     ERROR_CODE_UNSUPPORTED_ASSOCIATION_TYPE_ID("UTA-60006", "Unsupported Association type",
             "Association type: %s is not supported"),
+    ERROR_CODE_INVALID_TENANT_ID("60002", "Invalid tenant id",
+            "Tenant: %s does not exist"),
 
     // Server Errors.
     ERROR_CODE_SORT_BY_NOT_IMPLEMENTED("65001", "Sort-By not implemented",
@@ -39,7 +41,16 @@ public enum ErrorMessage {
             "Constrain violation while updating the database"),
     ERROR_CODE_ERROR_GETTING_DB_CONNECTION("65005", "Error while getting the DB connection",
             "Error occurred while getting the database connection"),
-    ERROR_CODE_INVALID_DATA("65006", "Invalid data provided", "Invalid data provided");
+    ERROR_CODE_INVALID_DATA("65006", "Invalid data provided", "Invalid data provided"),
+    ERROR_CODE_ERROR_GETTING_REALM("65007", "Error getting realm service",
+            "Error getting the realm service"),
+    ERROR_CODE_GETTING_ASC_TYPE_FOR_USER("65009", "Error getting association type for user",
+            "Error occurred while getting association type for user: %s for tenant: %s"),
+    ERROR_CODE_GETTING_DATABASE_CONNECTION("65010", "Error getting database connection",
+            "Error getting database connection for tenant: %s"),
+    ERROR_CODE_MULTIPLE_ASSOCIATIONS_FOR_USER("65011", "Multiple associations for user in " +
+            "the same tenant",
+            "Multiple association found for the user: %s with tenant: %s"),;
 
     private final String code;
     private final String message;
