@@ -16,7 +16,11 @@ import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.wso2.carbon.user.api.UserStoreManager;
+import org.wso2.carbon.user.core.service.RealmService;
 
 /**
  * This class contains the service component of the AsgardioUserStoreManager.
@@ -33,7 +37,8 @@ public class AsgardioUMServiceComponent {
     protected void activate(ComponentContext ctxt) {
 
         AsgardioUserStoreManager asgardioUserStoreManager = new AsgardioUserStoreManager();
-        ctxt.getBundleContext().registerService(UserStoreManager.class.getName(), asgardioUserStoreManager, null);
+        ctxt.getBundleContext().registerService(UserStoreManager.class.getName(), asgardioUserStoreManager,
+                null);
         log.info("AsgardioUserStoreManager bundle activated successfully.");
     }
 
@@ -43,5 +48,21 @@ public class AsgardioUMServiceComponent {
         if (log.isDebugEnabled()) {
             log.debug("AsgardioUserStoreManager bundle is deactivated.");
         }
+    }
+
+    @Reference(
+            name = "RealmService",
+            service = org.wso2.carbon.user.core.service.RealmService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRealmService")
+    protected void setRealmService(RealmService realmService) {
+
+        AsgardioUserStoreDataHolder.setRealmService(realmService);
+    }
+
+    protected void unsetRealmService(RealmService realmService) {
+
+        AsgardioUserStoreDataHolder.setRealmService(null);
     }
 }

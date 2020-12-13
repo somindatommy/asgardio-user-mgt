@@ -51,11 +51,11 @@
                             ${project.artifactId}
                         </Bundle-SymbolicName>
                         <Private-Package>
-                            com.wso2.identity.asgardio.association.mgt.internal
+                            com.wso2.identity.asgardio.tenant.association.mgt.internal
                         </Private-Package>
                         <Export-Package>
-                            !com.wso2.identity.asgardio.association.mgt.internal,
-                            com.wso2.identity.asgardio.association.mgt.*
+                            !com.wso2.identity.asgardio.tenant.association.mgt.internal
+                            com.wso2.identity.asgardio.tenant.association.mgt.*
                         </Export-Package>
                         <Import-Package>
                             org.osgi.framework; version="${osgi.framework.imp.pkg.version.range}",
@@ -72,5 +72,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
