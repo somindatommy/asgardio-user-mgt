@@ -130,7 +130,7 @@ public interface UserTenantAssociationManager {
     void deleteAllTenantAssociationsForUser(String userUuid) throws UserStoreException;
 
     /**
-     * Delete all user association for the given tenant,
+     * Delete all user association for the given tenant.
      *
      * @param tenantUuid UUID of the tenant.
      * @throws UserStoreException If an error occurred while deleting user associations.
@@ -141,9 +141,10 @@ public interface UserTenantAssociationManager {
      * Check whether the user has the given association type with the given tenant.
      *
      * @param userUuid        UUID of the user.
-     * @param tenantID        UUID of the tenant
+     * @param tenantUuid      UUID of the tenant.
      * @param associationType User-tenant association type {@link UserTenantAssociation}.
-     * @return
+     * @return True if the user has given association type in the given tenant.
+     * @throws UserStoreException If an error occurred while checking for association types.
      */
-    boolean hasAssociationType(String userUuid, String tenantID, String associationType);
+    boolean hasAssociationType(String userUuid, String tenantUuid, String associationType) throws UserStoreException;
 }

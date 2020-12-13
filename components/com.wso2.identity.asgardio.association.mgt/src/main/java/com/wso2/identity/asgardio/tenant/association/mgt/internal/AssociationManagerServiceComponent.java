@@ -9,6 +9,8 @@
 
 package com.wso2.identity.asgardio.tenant.association.mgt.internal;
 
+import com.wso2.identity.asgardio.tenant.association.mgt.UserTenantAssociationManager;
+import com.wso2.identity.asgardio.tenant.association.mgt.internal.services.DefaultUserTenantAssociationManager;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.osgi.service.component.ComponentContext;
@@ -18,7 +20,6 @@ import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
-import org.wso2.carbon.user.api.UserStoreManager;
 import org.wso2.carbon.user.core.service.RealmService;
 
 /**
@@ -35,6 +36,9 @@ public class AssociationManagerServiceComponent {
     @Activate
     protected void activate(ComponentContext ctxt) {
 
+        UserTenantAssociationManager userTenantAssociationManager = new DefaultUserTenantAssociationManager();
+        ctxt.getBundleContext().registerService(UserTenantAssociationManager.class.getName(),
+                userTenantAssociationManager, null);
         log.info("Asgardio UserTenantAssociationManager bundle activated successfully.");
     }
 
