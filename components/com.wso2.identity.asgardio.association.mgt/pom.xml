@@ -54,7 +54,7 @@
                             com.wso2.identity.asgardio.tenant.association.mgt.internal
                         </Private-Package>
                         <Export-Package>
-                            !com.wso2.identity.asgardio.tenant.association.mgt.internal
+                            !com.wso2.identity.asgardio.tenant.association.mgt.internal,
                             com.wso2.identity.asgardio.tenant.association.mgt.*
                         </Export-Package>
                         <Import-Package>
