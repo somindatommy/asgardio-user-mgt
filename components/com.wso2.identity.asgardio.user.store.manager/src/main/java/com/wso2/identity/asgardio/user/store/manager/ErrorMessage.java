@@ -21,25 +21,29 @@ public enum ErrorMessage {
             "Claim URI value cannot be empty"),
 
     // Server Errors.
-    ERROR_CODE_ERROR_GETTING_DB_CONNECTION("65003", "Error while getting the DB connection",
+    ERROR_CODE_ERROR_GETTING_DB_CONNECTION("65001", "Error while getting the DB connection",
             "Error occurred while getting the database connection"),
-    ERROR_CODE_ADDING_ROLE_WITH_ID("65014", "Error while adding role with id",
+    ERROR_CODE_ADDING_ROLE_WITH_ID("65002", "Error while adding role with id",
             "Error occurred while adding the role: %s"),
-    ERROR_CODE_UPDATING_DATABASE("65007", "Error updating the database",
+    ERROR_CODE_UPDATING_DATABASE("65003", "Error updating the database",
             "Error while updating the database"),
-    ERROR_CODE_CONSTRAIN_VIOLATION("65006", "Constrain violation",
+    ERROR_CODE_CONSTRAIN_VIOLATION("65004", "Constrain violation",
             "Constrain violation while updating the database"),
     ERROR_CODE_INVALID_DATA("65005", "Invalid data provided", "Invalid data provided"),
-    ERROR_CODE_ERROR_GETTING_USER_ATTRIBUTES("65021", "Error getting user attributes",
+    ERROR_CODE_ERROR_GETTING_USER_ATTRIBUTES("65006", "Error getting user attributes",
             "Error occurred while getting the attributes for the user: %s"),
-    ERROR_CODE_ERROR_WHILE_FILTERING_USERS("65016", "Error while while retrieving users ",
+    ERROR_CODE_ERROR_WHILE_FILTERING_USERS("65007", "Error while while retrieving users ",
             "Error occurred while retrieving users for filter: %s with max item limit: %s"),
-    ERROR_CODE_GETTING_COUNT("65018", "Error occurred while getting the count",
+    ERROR_CODE_GETTING_COUNT("65008", "Error occurred while getting the count",
             "Error occurred while retrieving getting count for filter: %s with value: %s"),
-    ERROR_CODE_GETTING_USERS_WITH_MULTI_ATTR("65017", "Error occurred while doGetUserList for " +
+    ERROR_CODE_GETTING_USERS_WITH_MULTI_ATTR("65009", "Error occurred while doGetUserList for " +
             "multi attribute searching", "Error occurred while retrieving users list"),
-    ERROR_CODE_INVALID_FILTER_CONDITION("65007", "Invalid filter condition",
-            "Filter condition is not valid"),;
+    ERROR_CODE_INVALID_FILTER_CONDITION("65010", "Invalid filter condition",
+            "Filter condition is not valid"),
+    ERROR_CODE_ERROR_GETTING_TENANT_UUID("65011", "Error while getting the tenant UUID",
+            "Error occurred while getting the tenant UUID for tenant: %s"),
+    ERROR_CODE_INVALID_TENANT_ID("65011", "No tenant UUID found",
+            "No tenant UUID found for tenant: %s");
 
     private final String code;
     private final String message;

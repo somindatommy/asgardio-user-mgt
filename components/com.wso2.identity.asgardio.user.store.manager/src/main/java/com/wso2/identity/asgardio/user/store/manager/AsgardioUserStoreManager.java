@@ -11,6 +11,7 @@ package com.wso2.identity.asgardio.user.store.manager;
 
 import com.wso2.identity.asgardio.user.store.manager.constants.CaseInsensitiveSQLConstants;
 import com.wso2.identity.asgardio.user.store.manager.constants.CaseSensitiveSQLConstants;
+import com.wso2.identity.asgardio.user.store.manager.internal.AsgardioUserStoreDataHolder;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
@@ -190,8 +191,8 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
 
         List<User> users = new ArrayList<>();
         try (Connection dbConnection = getDataBaseConnection()) {
-            //todo: getTenantUuidByTenantId(dbConnection, tenantId);
-            String tenantUuid = "%";
+            String tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
+                    getTenant(tenantId).getTenantUniqueID();
             try (PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
                 prepStmt.setString(1, tenantUuid);
                 prepStmt.setString(2, filter);
@@ -224,7 +225,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
                 throw handleException(exception,
                         ErrorMessage.ERROR_CODE_ERROR_WHILE_FILTERING_USERS, filter, maxItemLimit);
             }
-        } catch (SQLException exception) {
+        } catch (org.wso2.carbon.user.api.UserStoreException | SQLException exception) {
             if (exception instanceof SQLTimeoutException) {
                 log.error(String.format("The cause might be a time out. Hence ignored for filter: %s with max " +
                         "limit: %s", filter, maxItemLimit), exception);
@@ -260,8 +261,8 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             valueFilter = valueFilter.replace("?", "_");
         }
         try (Connection dbConnection = getDataBaseConnection()) {
-            //todo: getTenantUuidByTenantId(dbConnection, tenantId);
-            String tenantUuid = "%";
+            String tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
+                    getTenant(tenantId).getTenantUniqueID();
             String domainName = getMyDomainName();
             if (StringUtils.isEmpty(domainName)) {
                 domainName = UserCoreConstants.PRIMARY_DEFAULT_DOMAIN_NAME;
@@ -403,9 +404,17 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
         int groupFilterCount = 0;
         int claimFilterCount = 0;
 
-        //todo: getTenantUuidByTenantId(dbConnection, tenantId);
-        String tenantUuid = "%";
-
+        String tenantUuid;
+        try {
+            tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
+                    getTenant(tenantId).getTenantUniqueID();
+            if (StringUtils.isBlank(tenantUuid)) {
+                throw new UserStoreException(String.format(ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getDescription(),
+                        tenantId), ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getCode());
+            }
+        } catch (org.wso2.carbon.user.api.UserStoreException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_TENANT_UUID, tenantId);
+        }
         // Todo: Need to implement for DB2, ORACLE, MSSQL. Refer to the impl in UniqueIDJDBCUserStoreManager.
         if (isGroupFiltering && isUsernameFiltering && isClaimFiltering || isGroupFiltering && isClaimFiltering) {
             // todo: add associations.
