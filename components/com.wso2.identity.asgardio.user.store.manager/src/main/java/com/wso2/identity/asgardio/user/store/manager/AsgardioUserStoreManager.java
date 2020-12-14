@@ -11,6 +11,7 @@ package com.wso2.identity.asgardio.user.store.manager;
 
 import com.wso2.identity.asgardio.user.store.manager.constants.CaseInsensitiveSQLConstants;
 import com.wso2.identity.asgardio.user.store.manager.constants.CaseSensitiveSQLConstants;
+import com.wso2.identity.asgardio.user.store.manager.constants.Constants;
 import com.wso2.identity.asgardio.user.store.manager.internal.AsgardioUserStoreDataHolder;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
@@ -829,7 +830,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
 
         // The properties have been set to none to disable query change and properties changes from the UI.
         Properties properties = new Properties();
-        properties.setMandatoryProperties(new Property[0]);
+        properties.setMandatoryProperties(Constants.USER_STORE_MANAGER_MANDATORY_PROPERTIES.toArray(new Property[0]));
         properties.setOptionalProperties(new Property[0]);
         properties.setAdvancedProperties(new Property[0]);
         return properties;

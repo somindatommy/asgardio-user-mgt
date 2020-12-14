@@ -55,7 +55,7 @@ public class Constants {
             "CountRetrieverClass", UserStoreConfigConstants.claimOperationsSupported,
             JDBCRealmConstants.DIGEST_FUNCTION, UserCoreConstants.TenantMgtConfig.LOCAL_NAME_TENANT_MANAGER,
             UserCoreConstants.RealmConfig.READ_GROUPS_ENABLED, UserCoreConstants.RealmConfig.WRITE_GROUPS_ENABLED,
-            "MultiAttributeSeparator", "password", "IsBulkImportSupported"
+            "MultiAttributeSeparator", "password", "IsBulkImportSupported", JDBCRealmConstants.STORE_SALTED_PASSWORDS
     };
 
     static {
