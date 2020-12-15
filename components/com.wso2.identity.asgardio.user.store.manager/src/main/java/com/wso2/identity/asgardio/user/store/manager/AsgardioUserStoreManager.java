@@ -18,6 +18,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.CarbonConstants;
+import org.wso2.carbon.tenant.mgt.util.TenantMgtUtil;
 import org.wso2.carbon.user.api.Properties;
 import org.wso2.carbon.user.api.Property;
 import org.wso2.carbon.user.api.RealmConfiguration;
@@ -370,12 +371,18 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
         Arrays.sort(propertyNamesSorted);
         Map<String, String> map = new HashMap<>();
         String tenantUuid = getTenantUuidFromTenantID(tenantId);
+        String sqlStmt = CaseInsensitiveSQLConstants.GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL;
+        boolean isTenantCreationOperation = TenantMgtUtil.isTenantAdminCreationOperation();
+        if (isTenantCreationOperation) {
+            sqlStmt = CaseInsensitiveSQLConstants.GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL_TENANT_CREATION;
+        }
         try (Connection dbConnection = getDataBaseConnection();
-             PreparedStatement prepStmt = dbConnection.prepareStatement(
-                     CaseInsensitiveSQLConstants.GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL)) {
+             PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
             prepStmt.setString(1, userID);
             prepStmt.setString(2, profileName);
-            prepStmt.setString(3, tenantUuid);
+            if (!isTenantCreationOperation) {
+                prepStmt.setString(3, tenantUuid);
+            }
             ResultSet rs = prepStmt.executeQuery();
             while (rs.next()) {
                 String name = rs.getString(1);
@@ -632,21 +639,20 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
 
         // Todo: Need to implement for DB2, ORACLE, MSSQL. Refer to the impl in UniqueIDJDBCUserStoreManager.
         if (isGroupFiltering && isUsernameFiltering && isClaimFiltering || isGroupFiltering && isClaimFiltering) {
-            // todo: add associations.
             sqlStatement = new StringBuilder(
-                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM UM_ROLE R INNER JOIN "
-                            + "UM_USER_ROLE UR INNER JOIN UM_USER U INNER JOIN UM_USER_ATTRIBUTE UA ON R.UM_ID = "
-                            + "UR.UM_ROLE_ID AND UR.UM_USER_ID =" + " U.UM_ID AND U.UM_ID = UA.UM_USER_ID");
+                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM ASG_USER_TENANT_ASC AS AUTA INNER JOIN " +
+                            "UM_ROLE R INNER JOIN UM_USER_ROLE UR INNER JOIN UM_USER U INNER JOIN UM_USER_ATTRIBUTE " +
+                            "UA ON R.UM_ID = UR.UM_ROLE_ID AND UR.UM_USER_ID = U.UM_ID AND U.UM_ID = UA.UM_USER_ID");
             sqlBuilder = new SqlBuilder(sqlStatement).where("R.UM_TENANT_ID = ?", tenantId)
-                    .where("UR.UM_TENANT_ID = ?", tenantId).where("UA.UM_PROFILE_ID = ?", profileName);
+                    .where("UR.UM_TENANT_ID = ?", tenantId).where("UA.UM_PROFILE_ID = ?", profileName).
+                            where("AUTA.ASG_TENANT_UUID = ?", tenantUuid);
         } else if (isGroupFiltering && isUsernameFiltering || isGroupFiltering) {
-            // todo: add associations.
             sqlStatement = new StringBuilder(
-                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM UM_ROLE R INNER JOIN "
-                            + "UM_USER_ROLE UR INNER JOIN UM_USER U ON R.UM_ID = UR.UM_ROLE_ID AND UR.UM_USER_ID "
-                            + "=U.UM_ID");
+                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM ASG_USER_TENANT_ASC AS AUTA INNER JOIN " +
+                            "UM_ROLE R INNER JOIN UM_USER_ROLE UR INNER JOIN UM_USER U ON R.UM_ID = UR.UM_ROLE_ID " +
+                            "AND UR.UM_USER_ID=U.UM_ID");
             sqlBuilder = new SqlBuilder(sqlStatement).where("R.UM_TENANT_ID = ?", tenantId)
-                    .where("UR.UM_TENANT_ID = ?", tenantId);
+                    .where("UR.UM_TENANT_ID = ?", tenantId).where("AUTA.ASG_TENANT_UUID = ?", tenantUuid);
         } else if (isUsernameFiltering && isClaimFiltering || isClaimFiltering) {
             sqlStatement = new StringBuilder(
                     "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM ASG_USER_TENANT_ASC AUTA " +

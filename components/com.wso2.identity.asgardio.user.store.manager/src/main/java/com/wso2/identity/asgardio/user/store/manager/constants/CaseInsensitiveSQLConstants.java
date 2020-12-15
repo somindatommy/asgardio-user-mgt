@@ -21,10 +21,16 @@ public class CaseInsensitiveSQLConstants {
                     "UM_ROLE_NAME=? AND UM_TENANT_ID=?), ?)";
     public static final String ADD_ROLE_SQL = "INSERT INTO UM_ROLE (UM_ROLE_NAME, UM_TENANT_ID) VALUES (?, ?)";
 
+    /*In the tenant creation flow, the user has no associations, therefore using GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL
+    is wrong.
+     */
+    public static final String GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL_TENANT_CREATION =
+            "SELECT UM_ATTR_NAME, UM_ATTR_VALUE FROM UM_USER_ATTRIBUTE, UM_USER WHERE " +
+                    "UM_USER.UM_ID = UM_USER_ATTRIBUTE.UM_USER_ID AND UM_USER.UM_USER_ID=? AND UM_PROFILE_ID=?";
     public static final String GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL =
             "SELECT UUA.UM_ATTR_NAME, UUA.UM_ATTR_VALUE FROM UM_USER_ATTRIBUTE AS UUA, UM_USER AS U INNER JOIN " +
                     "ASG_USER_TENANT_ASC AUTA ON U.UM_USER_ID = AUTA.ASG_USER_UUID WHERE U.UM_ID = UUA." +
-                    ".UM_USER_ID AND U.UM_USER_ID=? AND UUA.UM_PROFILE_ID=? AND AUTA.ASG_TENANT_UUID=?";
+                    "UM_USER_ID AND U.UM_USER_ID=? AND UUA.UM_PROFILE_ID=? AND AUTA.ASG_TENANT_UUID=?";
     public static final String GET_USERS_PROPS_FOR_PROFILE_WITH_ID_SQL =
             "SELECT U.UM_USER_ID, UUA.UM_ATTR_NAME, UUA.UM_ATTR_VALUE FROM UM_USER_ATTRIBUTE AS UUA, " +
                     "UM_USER AS U INNER JOIN ASG_USER_TENANT_ASC AUTA ON AUTA.ASG_USER_UUID = U.UM_USER_ID " +
