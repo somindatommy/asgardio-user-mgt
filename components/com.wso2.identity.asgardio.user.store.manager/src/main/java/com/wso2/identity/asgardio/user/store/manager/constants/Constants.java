@@ -132,9 +132,17 @@ public class Constants {
                 "User Filter With ID From Case Sensitive Username",
                 CaseSensitiveSQLConstants.GET_USER_FILTER_WITH_ID_CASE_SENSITIVE_SQL,
                 new Property[]{USER.getProperty(), SQL.getProperty(), FALSE.getProperty()});
-        setAdvancedProperty(JDBCCaseInsensitiveConstants.SELECT_USER_WITH_ID_CASE_INSENSITIVE,
+        setAdvancedProperty(JDBCCaseInsensitiveConstants.GET_USER_FILTER_WITH_ID_CASE_INSENSITIVE,
                 "User Filter With ID From Case Insensitive Username",
                 CaseInsensitiveSQLConstants.GET_USER_FILTER_WITH_ID_CASE_INSENSITIVE_SQL,
+                new Property[]{USER.getProperty(), SQL.getProperty(), FALSE.getProperty()});
+        setAdvancedProperty(JDBCCaseInsensitiveConstants.SELECT_USER_WITH_ID_CASE_INSENSITIVE,
+                "Select User With ID SQL With Case Insensitive Username",
+                CaseInsensitiveSQLConstants.SELECT_USER_WITH_ID_SQL_CASE_INSENSITIVE_SQL,
+                new Property[]{USER.getProperty(), SQL.getProperty(), FALSE.getProperty()});
+        setAdvancedProperty(JDBCRealmConstants.SELECT_USER_WITH_ID,
+                "Select User With ID SQL With Case Sensitive Username",
+                CaseSensitiveSQLConstants.SELECT_USER_WITH_ID_SQL,
                 new Property[]{USER.getProperty(), SQL.getProperty(), FALSE.getProperty()});
         setAdvancedProperty(JDBCRealmConstants.COUNT_USERS,
                 "Count Users with username SQL",

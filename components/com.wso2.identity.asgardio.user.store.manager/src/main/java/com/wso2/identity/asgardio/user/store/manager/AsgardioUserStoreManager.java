@@ -27,8 +27,11 @@ import org.wso2.carbon.user.core.UserStoreConfigConstants;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.claim.ClaimManager;
 import org.wso2.carbon.user.core.common.AbstractUserStoreManager;
+import org.wso2.carbon.user.core.common.AuthenticationResult;
+import org.wso2.carbon.user.core.common.FailureReason;
 import org.wso2.carbon.user.core.common.UniqueIDPaginatedSearchResult;
 import org.wso2.carbon.user.core.common.User;
+import org.wso2.carbon.user.core.jdbc.JDBCRealmConstants;
 import org.wso2.carbon.user.core.jdbc.UniqueIDJDBCUserStoreManager;
 import org.wso2.carbon.user.core.model.Condition;
 import org.wso2.carbon.user.core.model.ExpressionAttribute;
@@ -38,6 +41,7 @@ import org.wso2.carbon.user.core.model.OperationalCondition;
 import org.wso2.carbon.user.core.model.SqlBuilder;
 import org.wso2.carbon.user.core.profile.ProfileConfigurationManager;
 import org.wso2.carbon.user.core.util.DatabaseUtil;
+import org.wso2.carbon.user.core.util.UserCoreUtil;
 import org.wso2.carbon.utils.dbcreator.DatabaseCreator;
 
 import java.sql.Connection;
@@ -51,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +109,181 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
     }
 
     @Override
+    public AuthenticationResult doAuthenticateWithID(String preferredUserNameProperty, String preferredUserNameValue,
+                                                     Object credential, String profileName) throws UserStoreException {
+
+        // If the preferred username property is username, then authenticate with username.
+        if (preferredUserNameProperty.equals(getUserNameMappedAttribute())) {
+            return doAuthenticateWithUserName(preferredUserNameValue, credential);
+        }
+        // Pre validate credential to avoid unnecessary db queries.
+        if (!isValidCredentials(credential)) {
+            String reason = "Password validation failed";
+            if (log.isDebugEnabled()) {
+                log.debug(reason);
+            }
+            return getAuthenticationResult(reason);
+        }
+        // Resolve profile information.
+        if (profileName == null) {
+            profileName = UserCoreConstants.DEFAULT_PROFILE;
+        }
+        String sqlStmt;
+        if (isCaseSensitiveUsername()) {
+            sqlStmt = CaseSensitiveSQLConstants.SELECT_USER_WITH_ID_SQL;
+        } else {
+            sqlStmt = CaseInsensitiveSQLConstants.SELECT_USER_WITH_ID_SQL_CASE_INSENSITIVE_SQL;
+        }
+
+        boolean isAuthed = false;
+        AuthenticationResult authenticationResult = new AuthenticationResult(
+                AuthenticationResult.AuthenticationStatus.FAIL);
+        try (Connection dbConnection = getDataBaseConnection();
+             PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
+            prepStmt.setString(1, preferredUserNameProperty);
+            prepStmt.setString(2, preferredUserNameValue);
+            prepStmt.setString(3, profileName);
+            int count = 0;
+            try (ResultSet rs = prepStmt.executeQuery()) {
+                // Handle multiple matching users for given attribute.
+                count++;
+                if (count > 1) {
+                    String reason = String.format("Invalid scenario. Multiple users found for the given username " +
+                            "property: %s and value: %s", preferredUserNameProperty, preferredUserNameValue);
+                    if (log.isDebugEnabled()) {
+                        log.debug(reason);
+                    }
+                    return getAuthenticationResult(reason);
+                }
+                String userID = rs.getString(1);
+                String userName = rs.getString(2);
+                String storedPassword = rs.getString(3);
+                String saltValue = null;
+                if ("true".equalsIgnoreCase(
+                        realmConfig.getUserStoreProperty(JDBCRealmConstants.STORE_SALTED_PASSWORDS))) {
+                    saltValue = rs.getString(4);
+                }
+
+                boolean requireChange = rs.getBoolean(5);
+                Timestamp changedTime = rs.getTimestamp(6);
+
+                GregorianCalendar gc = new GregorianCalendar();
+                gc.add(GregorianCalendar.HOUR, -24);
+                Date date = gc.getTime();
+
+                if (requireChange && changedTime.before(date)) {
+                    isAuthed = false;
+                    authenticationResult = new AuthenticationResult(AuthenticationResult.AuthenticationStatus.FAIL);
+                    authenticationResult.setFailureReason(new FailureReason("Password change required."));
+                } else {
+                    String password = preparePassword(credential, saltValue);
+                    if ((storedPassword != null) && (storedPassword.equals(password))) {
+                        isAuthed = true;
+                        User user = getUser(userID, userName);
+                        user.setPreferredUsername(preferredUserNameProperty);
+                        authenticationResult = new AuthenticationResult(
+                                AuthenticationResult.AuthenticationStatus.SUCCESS);
+                        authenticationResult.setAuthenticatedUser(user);
+                    }
+                }
+            } catch (SQLException exception) {
+                throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_AUTH_WITH_ID, preferredUserNameValue);
+            }
+        } catch (SQLException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_AUTH_WITH_ID, preferredUserNameValue);
+        }
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("Login attempt by user: %s. Login success: %s", preferredUserNameValue, isAuthed));
+        }
+        return authenticationResult;
+    }
+
+    protected AuthenticationResult doAuthenticateWithUserName(String userName, Object credential)
+            throws UserStoreException {
+
+        // Pre validate username to avoid unnecessary db queries.
+        if (!isValidUserName(userName)) {
+            String reason = "Username validation failed";
+            if (log.isDebugEnabled()) {
+                log.debug(reason);
+            }
+            return getAuthenticationResult(reason);
+        }
+        if (UserCoreUtil.isRegistryAnnonymousUser(userName)) {
+            String reason = "Anonymous user trying to login.";
+            log.error(reason);
+            return getAuthenticationResult(reason);
+        }
+        // Pre validate credential to avoid unnecessary db queries.
+        if (!isValidCredentials(credential)) {
+            String reason = "Password validation failed.";
+            if (log.isDebugEnabled()) {
+                log.debug(reason);
+            }
+            return getAuthenticationResult(reason);
+        }
+        String tenantUuid = getTenantUuidFromTenantID(tenantId);
+        String sqlStmt;
+        if (isCaseSensitiveUsername()) {
+            sqlStmt = CaseSensitiveSQLConstants.SELECT_USER_NAME_CASE_SENSITIVE_SQL;
+        } else {
+            sqlStmt = CaseInsensitiveSQLConstants.SELECT_USER_NAME_CASE_INSENSITIVE_SQL;
+        }
+
+        boolean isAuthed = false;
+        AuthenticationResult authenticationResult = new AuthenticationResult(
+                AuthenticationResult.AuthenticationStatus.FAIL);
+
+        try (Connection dbConnection = getDataBaseConnection();
+             PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
+            prepStmt.setString(1, userName);
+            prepStmt.setString(2, tenantUuid);
+            try (ResultSet rs = prepStmt.executeQuery()) {
+                while (rs.next()) {
+                    String userID = rs.getString(1);
+                    String storedPassword = rs.getString(3);
+                    String saltValue = null;
+                    if ("true".equalsIgnoreCase(
+                            realmConfig.getUserStoreProperty(JDBCRealmConstants.STORE_SALTED_PASSWORDS))) {
+                        saltValue = rs.getString(4);
+                    }
+                    boolean requireChange = rs.getBoolean(5);
+                    Timestamp changedTime = rs.getTimestamp(6);
+
+                    GregorianCalendar gc = new GregorianCalendar();
+                    gc.add(GregorianCalendar.HOUR, -24);
+                    Date date = gc.getTime();
+
+                    // Validate Password Status.
+                    if (requireChange && changedTime.before(date)) {
+                        isAuthed = false;
+                        authenticationResult = new AuthenticationResult(AuthenticationResult.AuthenticationStatus.FAIL);
+                        authenticationResult.setFailureReason(new FailureReason("Password change required."));
+                    } else {
+                        // Validate Authentication.
+                        String password = preparePassword(credential, saltValue);
+                        if ((storedPassword != null) && (storedPassword.equals(password))) {
+                            isAuthed = true;
+                            User user = getUser(userID, userName);
+                            authenticationResult = new AuthenticationResult(
+                                    AuthenticationResult.AuthenticationStatus.SUCCESS);
+                            authenticationResult.setAuthenticatedUser(user);
+                        }
+                    }
+                }
+            } catch (SQLException exception) {
+                throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_AUTH_WITH_USERNAME);
+            }
+        } catch (SQLException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_AUTH_WITH_USERNAME);
+        }
+        if (log.isDebugEnabled()) {
+            log.debug(String.format("Login attempt by user: %s. Login success: %s", userName, isAuthed));
+        }
+        return authenticationResult;
+    }
+
+    @Override
     public void doAddRoleWithID(String roleName, String[] userIDList, boolean shared) throws UserStoreException {
 
         // TODO: what if this is not a tenant creation path
@@ -139,18 +319,19 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
     public Map<String, String> getUserPropertyValuesWithID(String userID, String[] propertyNames, String profileName)
             throws UserStoreException {
 
-        //todo: check association. Also ignore association in the tenant creation flow.
         if (profileName == null) {
             profileName = UserCoreConstants.DEFAULT_PROFILE;
         }
         String[] propertyNamesSorted = propertyNames.clone();
         Arrays.sort(propertyNamesSorted);
         Map<String, String> map = new HashMap<>();
+        String tenantUuid = getTenantUuidFromTenantID(tenantId);
         try (Connection dbConnection = getDataBaseConnection();
              PreparedStatement prepStmt = dbConnection.prepareStatement(
                      CaseInsensitiveSQLConstants.GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL)) {
             prepStmt.setString(1, userID);
             prepStmt.setString(2, profileName);
+            prepStmt.setString(2, tenantUuid);
             ResultSet rs = prepStmt.executeQuery();
             while (rs.next()) {
                 String name = rs.getString(1);
@@ -192,8 +373,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
 
         List<User> users = new ArrayList<>();
         try (Connection dbConnection = getDataBaseConnection()) {
-            String tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
-                    getTenant(tenantId).getTenantUniqueID();
+            String tenantUuid = getTenantUuidFromTenantID(tenantId);
             try (PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
                 prepStmt.setString(1, tenantUuid);
                 prepStmt.setString(2, filter);
@@ -262,8 +442,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             valueFilter = valueFilter.replace("?", "_");
         }
         try (Connection dbConnection = getDataBaseConnection()) {
-            String tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
-                    getTenant(tenantId).getTenantUniqueID();
+            String tenantUuid = getTenantUuidFromTenantID(tenantId);
             String domainName = getMyDomainName();
             if (StringUtils.isEmpty(domainName)) {
                 domainName = UserCoreConstants.PRIMARY_DEFAULT_DOMAIN_NAME;
@@ -405,17 +584,8 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
         int groupFilterCount = 0;
         int claimFilterCount = 0;
 
-        String tenantUuid;
-        try {
-            tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
-                    getTenant(tenantId).getTenantUniqueID();
-            if (StringUtils.isBlank(tenantUuid)) {
-                throw new UserStoreException(String.format(ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getDescription(),
-                        tenantId), ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getCode());
-            }
-        } catch (org.wso2.carbon.user.api.UserStoreException exception) {
-            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_TENANT_UUID, tenantId);
-        }
+        String tenantUuid = getTenantUuidFromTenantID(tenantId);
+
         // Todo: Need to implement for DB2, ORACLE, MSSQL. Refer to the impl in UniqueIDJDBCUserStoreManager.
         if (isGroupFiltering && isUsernameFiltering && isClaimFiltering || isGroupFiltering && isClaimFiltering) {
             // todo: add associations.
@@ -823,6 +993,30 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             }
             DatabaseUtil.closeAllConnections(null, prepStmt);
         }
+    }
+
+    private AuthenticationResult getAuthenticationResult(String reason) {
+
+        AuthenticationResult authenticationResult = new AuthenticationResult(
+                AuthenticationResult.AuthenticationStatus.FAIL);
+        authenticationResult.setFailureReason(new FailureReason(reason));
+        return authenticationResult;
+    }
+
+    private String getTenantUuidFromTenantID(int tenantID) throws UserStoreException {
+
+        String tenantUuid;
+        try {
+            tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
+                    getTenant(tenantId).getTenantUniqueID();
+            if (StringUtils.isBlank(tenantUuid)) {
+                throw new UserStoreException(String.format(ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getDescription(),
+                        tenantId), ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getCode());
+            }
+        } catch (org.wso2.carbon.user.api.UserStoreException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_TENANT_UUID, tenantId);
+        }
+        return tenantUuid;
     }
 
     @Override

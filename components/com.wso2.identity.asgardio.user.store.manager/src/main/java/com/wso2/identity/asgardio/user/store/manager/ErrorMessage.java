@@ -42,8 +42,12 @@ public enum ErrorMessage {
             "Filter condition is not valid"),
     ERROR_CODE_ERROR_GETTING_TENANT_UUID("65011", "Error while getting the tenant UUID",
             "Error occurred while getting the tenant UUID for tenant: %s"),
-    ERROR_CODE_INVALID_TENANT_ID("65011", "No tenant UUID found",
-            "No tenant UUID found for tenant: %s");
+    ERROR_CODE_INVALID_TENANT_ID("65012", "No tenant UUID found",
+            "No tenant UUID found for tenant: %s"),
+    ERROR_CODE_ERROR_AUTH_WITH_USERNAME("65013", "Error while authenticating with username",
+            "Error occurred while authenticating with username"),
+    ERROR_CODE_ERROR_AUTH_WITH_ID("65013", "Error while authenticating with id",
+            "Error occurred while retrieving user authentication info for user: %s");
 
     private final String code;
     private final String message;
