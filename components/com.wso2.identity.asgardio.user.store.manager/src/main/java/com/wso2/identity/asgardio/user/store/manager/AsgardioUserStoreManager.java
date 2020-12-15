@@ -146,44 +146,45 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             int count = 0;
             try (ResultSet rs = prepStmt.executeQuery()) {
                 // Handle multiple matching users for given attribute.
-                count++;
-                if (count > 1) {
-                    String reason = String.format("Invalid scenario. Multiple users found for the given username " +
-                            "property: %s and value: %s", preferredUserNameProperty, preferredUserNameValue);
-                    if (log.isDebugEnabled()) {
-                        log.debug(reason);
+                while (rs.next()) {
+                    count++;
+                    if (count > 1) {
+                        String reason = String.format("Invalid scenario. Multiple users found for the given username " +
+                                "property: %s and value: %s", preferredUserNameProperty, preferredUserNameValue);
+                        if (log.isDebugEnabled()) {
+                            log.debug(reason);
+                        }
+                        return getAuthenticationResult(reason);
                     }
-                    return getAuthenticationResult(reason);
-                }
-                String userID = rs.getString(1);
-                String userName = rs.getString(2);
-                String storedPassword = rs.getString(3);
-                String saltValue = null;
-                if ("true".equalsIgnoreCase(
-                        realmConfig.getUserStoreProperty(JDBCRealmConstants.STORE_SALTED_PASSWORDS))) {
-                    saltValue = rs.getString(4);
-                }
+                    String userID = rs.getString(1);
+                    String userName = rs.getString(2);
+                    String storedPassword = rs.getString(3);
+                    String saltValue = null;
+                    if ("true".equalsIgnoreCase(
+                            realmConfig.getUserStoreProperty(JDBCRealmConstants.STORE_SALTED_PASSWORDS))) {
+                        saltValue = rs.getString(4);
+                    }
 
-                boolean requireChange = rs.getBoolean(5);
-                Timestamp changedTime = rs.getTimestamp(6);
+                    boolean requireChange = rs.getBoolean(5);
+                    Timestamp changedTime = rs.getTimestamp(6);
 
-                GregorianCalendar gc = new GregorianCalendar();
-                gc.add(GregorianCalendar.HOUR, -24);
-                Date date = gc.getTime();
+                    GregorianCalendar gc = new GregorianCalendar();
+                    gc.add(GregorianCalendar.HOUR, -24);
+                    Date date = gc.getTime();
 
-                if (requireChange && changedTime.before(date)) {
-                    isAuthed = false;
-                    authenticationResult = new AuthenticationResult(AuthenticationResult.AuthenticationStatus.FAIL);
-                    authenticationResult.setFailureReason(new FailureReason("Password change required."));
-                } else {
-                    String password = preparePassword(credential, saltValue);
-                    if ((storedPassword != null) && (storedPassword.equals(password))) {
-                        isAuthed = true;
-                        User user = getUser(userID, userName);
-                        user.setPreferredUsername(preferredUserNameProperty);
-                        authenticationResult = new AuthenticationResult(
-                                AuthenticationResult.AuthenticationStatus.SUCCESS);
-                        authenticationResult.setAuthenticatedUser(user);
+                    if (requireChange && changedTime.before(date)) {
+                        authenticationResult = new AuthenticationResult(AuthenticationResult.AuthenticationStatus.FAIL);
+                        authenticationResult.setFailureReason(new FailureReason("Password change required."));
+                    } else {
+                        String password = preparePassword(credential, saltValue);
+                        if ((storedPassword != null) && (storedPassword.equals(password))) {
+                            isAuthed = true;
+                            User user = getUser(userID, userName);
+                            user.setPreferredUsername(preferredUserNameProperty);
+                            authenticationResult = new AuthenticationResult(
+                                    AuthenticationResult.AuthenticationStatus.SUCCESS);
+                            authenticationResult.setAuthenticatedUser(user);
+                        }
                     }
                 }
             } catch (SQLException exception) {
@@ -312,6 +313,49 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             }
         } catch (Exception exception) {
             throw handleException(exception, ErrorMessage.ERROR_CODE_ADDING_ROLE_WITH_ID, roleName);
+        }
+    }
+
+    @Override
+    protected Map<String, Map<String, String>> getUsersPropertyValuesWithID(List<String> users, String[] propertyNames,
+                                                                            String profileName)
+            throws UserStoreException {
+
+        if (profileName == null) {
+            profileName = UserCoreConstants.DEFAULT_PROFILE;
+        }
+        String[] propertyNamesSorted = propertyNames.clone();
+        Arrays.sort(propertyNamesSorted);
+        Map<String, Map<String, String>> usersPropertyValuesMap = new HashMap<>();
+        String sqlStmt =
+                buildSQLStmtWithUsersList(CaseInsensitiveSQLConstants.GET_USERS_PROPS_FOR_PROFILE_WITH_ID_SQL, users);
+        try (Connection dbConnection = getDataBaseConnection();
+             PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
+            prepStmt.setString(1, profileName);
+            prepStmt.setString(1, getTenantUuidFromTenantID(tenantId));
+            try (ResultSet rs = prepStmt.executeQuery()) {
+                while (rs.next()) {
+                    String name = rs.getString(2);
+                    if (Arrays.binarySearch(propertyNamesSorted, name) < 0) {
+                        continue;
+                    }
+                    String userID = rs.getString(1);
+                    String value = rs.getString(3);
+
+                    if (usersPropertyValuesMap.get(userID) != null) {
+                        usersPropertyValuesMap.get(userID).put(name, value);
+                    } else {
+                        Map<String, String> attributes = new HashMap<>();
+                        attributes.put(name, value);
+                        usersPropertyValuesMap.put(userID, attributes);
+                    }
+                }
+                return usersPropertyValuesMap;
+            } catch (SQLException exception) {
+                throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_USERS_ATTRIBUTES);
+            }
+        } catch (SQLException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_USERS_ATTRIBUTES);
         }
     }
 
@@ -1008,15 +1052,27 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
         String tenantUuid;
         try {
             tenantUuid = AsgardioUserStoreDataHolder.getRealmService().getTenantManager().
-                    getTenant(tenantId).getTenantUniqueID();
+                    getTenant(tenantID).getTenantUniqueID();
             if (StringUtils.isBlank(tenantUuid)) {
                 throw new UserStoreException(String.format(ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getDescription(),
-                        tenantId), ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getCode());
+                        tenantID), ErrorMessage.ERROR_CODE_INVALID_TENANT_ID.getCode());
             }
         } catch (org.wso2.carbon.user.api.UserStoreException exception) {
             throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_TENANT_UUID, tenantId);
         }
         return tenantUuid;
+    }
+
+    private String buildSQLStmtWithUsersList(String sqlStmt, List<String> users) {
+
+        StringBuilder usernameParameter = new StringBuilder();
+        for (int i = 0; i < users.size(); i++) {
+            usernameParameter.append("'").append(users.get(i)).append("'");
+            if (i != users.size() - 1) {
+                usernameParameter.append(",");
+            }
+        }
+        return sqlStmt.replaceFirst("\\?", usernameParameter.toString());
     }
 
     @Override

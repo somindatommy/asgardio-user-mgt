@@ -46,8 +46,10 @@ public enum ErrorMessage {
             "No tenant UUID found for tenant: %s"),
     ERROR_CODE_ERROR_AUTH_WITH_USERNAME("65013", "Error while authenticating with username",
             "Error occurred while authenticating with username"),
-    ERROR_CODE_ERROR_AUTH_WITH_ID("65013", "Error while authenticating with id",
-            "Error occurred while retrieving user authentication info for user: %s");
+    ERROR_CODE_ERROR_AUTH_WITH_ID("65014", "Error while authenticating with id",
+            "Error occurred while retrieving user authentication info for user: %s"),
+    ERROR_CODE_ERROR_GETTING_USERS_ATTRIBUTES("65015", "Error getting users attributes",
+            "Error occurred while getting the attributes for the users");
 
     private final String code;
     private final String message;
