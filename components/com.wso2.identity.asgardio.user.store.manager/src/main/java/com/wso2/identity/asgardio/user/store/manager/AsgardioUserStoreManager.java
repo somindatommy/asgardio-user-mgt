@@ -332,7 +332,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
         try (Connection dbConnection = getDataBaseConnection();
              PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
             prepStmt.setString(1, profileName);
-            prepStmt.setString(1, getTenantUuidFromTenantID(tenantId));
+            prepStmt.setString(2, getTenantUuidFromTenantID(tenantId));
             try (ResultSet rs = prepStmt.executeQuery()) {
                 while (rs.next()) {
                     String name = rs.getString(2);
@@ -375,7 +375,7 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
                      CaseInsensitiveSQLConstants.GET_USER_PROPS_FOR_PROFILE_WITH_ID_SQL)) {
             prepStmt.setString(1, userID);
             prepStmt.setString(2, profileName);
-            prepStmt.setString(2, tenantUuid);
+            prepStmt.setString(3, tenantUuid);
             ResultSet rs = prepStmt.executeQuery();
             while (rs.next()) {
                 String name = rs.getString(1);
@@ -648,11 +648,12 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             sqlBuilder = new SqlBuilder(sqlStatement).where("R.UM_TENANT_ID = ?", tenantId)
                     .where("UR.UM_TENANT_ID = ?", tenantId);
         } else if (isUsernameFiltering && isClaimFiltering || isClaimFiltering) {
-            // todo: add associations.
             sqlStatement = new StringBuilder(
-                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM UM_USER U INNER JOIN "
+                    "SELECT DISTINCT U.UM_USER_ID, U.UM_USER_NAME FROM ASG_USER_TENANT_ASC AUTA " +
+                            "INNER JOIN UM_USER U ON U.UM_USER_ID = AUTA.ASG_USER_UUID INNER JOIN "
                             + "UM_USER_ATTRIBUTE UA ON U.UM_ID = UA.UM_USER_ID");
-            sqlBuilder = new SqlBuilder(sqlStatement).where("UA.UM_PROFILE_ID = ?", profileName);
+            sqlBuilder = new SqlBuilder(sqlStatement).where("UA.UM_PROFILE_ID = ?", profileName).
+                    where("AUTA.ASG_TENANT_UUID = ?", tenantUuid);
         } else if (isUsernameFiltering) {
             sqlStatement = new StringBuilder("SELECT U.UM_USER_ID, U.UM_USER_NAME FROM UM_USER U INNER JOIN " +
                     "ASG_USER_TENANT_ASC AUTA ON U.UM_USER_ID=AUTA.ASG_USER_UUID ");
