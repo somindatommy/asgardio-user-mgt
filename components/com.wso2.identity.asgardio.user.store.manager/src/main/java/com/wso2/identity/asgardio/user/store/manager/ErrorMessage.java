@@ -15,10 +15,12 @@ package com.wso2.identity.asgardio.user.store.manager;
 public enum ErrorMessage {
 
     // Client Errors.
-    ERROR_CODE_EMPTY_CLAIM_URI("60008", "Empty Claim URI",
+    ERROR_CODE_EMPTY_CLAIM_URI("60001", "Empty Claim URI",
             "Claim URI cannot be empty"),
-    ERROR_CODE_EMPTY_CLAIM_VALUE("60009", "Empty Claim Value",
+    ERROR_CODE_EMPTY_CLAIM_VALUE("60002", "Empty Claim Value",
             "Claim URI value cannot be empty"),
+    ERROR_CODE_NO_ASC_WITH_TENANT("60003", "One or more users does not have associations with the tenant",
+            "One or more users does not have associations with the tenant: %s"),
 
     // Server Errors.
     ERROR_CODE_ERROR_GETTING_DB_CONNECTION("65001", "Error while getting the DB connection",
@@ -49,7 +51,9 @@ public enum ErrorMessage {
     ERROR_CODE_ERROR_AUTH_WITH_ID("65014", "Error while authenticating with id",
             "Error occurred while retrieving user authentication info for user: %s"),
     ERROR_CODE_ERROR_GETTING_USERS_ATTRIBUTES("65015", "Error getting users attributes",
-            "Error occurred while getting the attributes for the users");
+            "Error occurred while getting the attributes for the users"),
+    ERROR_CODE_ERROR_WHILE_VALIDATING_ASC("65016", "Error while validating user associations",
+            "Error occurred while validating user associations"),;
 
     private final String code;
     private final String message;

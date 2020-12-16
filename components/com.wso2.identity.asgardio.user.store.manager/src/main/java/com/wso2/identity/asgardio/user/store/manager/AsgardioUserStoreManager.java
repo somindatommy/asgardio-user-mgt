@@ -24,6 +24,7 @@ import org.wso2.carbon.user.api.Property;
 import org.wso2.carbon.user.api.RealmConfiguration;
 import org.wso2.carbon.user.core.UserCoreConstants;
 import org.wso2.carbon.user.core.UserRealm;
+import org.wso2.carbon.user.core.UserStoreClientException;
 import org.wso2.carbon.user.core.UserStoreConfigConstants;
 import org.wso2.carbon.user.core.UserStoreException;
 import org.wso2.carbon.user.core.claim.ClaimManager;
@@ -288,13 +289,16 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
     @Override
     public void doAddRoleWithID(String roleName, String[] userIDList, boolean shared) throws UserStoreException {
 
-        // TODO: what if this is not a tenant creation path
-        // Todo: in this approach we are NOT checking the user existence with the tenant id. So we can add
-        //  users who are not in the tenant domain. Ideally we need to check with the user tenant association
-        //  table before adding the role mapping.
+        boolean isTenantCreationOperation = TenantMgtUtil.isTenantAdminCreationOperation();
+        if (!isTenantCreationOperation && tenantId != -1234) {
+            /*
+            If this is not a tenant creation flow and not a super tenant flow, we need to check whether the users
+            list have any associations with the tenant.
+             */
+            validateAssociations(userIDList);
+        }
         if (shared && isSharedGroupEnabled()) {
-            // TODO: 12/4/20 implement the following method
-            //doAddSharedRoleWithID(roleName, userIDList);
+            doAddSharedRoleWithID(roleName, userIDList);
         }
         try (Connection dbConnection = getDataBaseConnection()) {
             String sqlStmt1 = CaseInsensitiveSQLConstants.ADD_ROLE_SQL;
@@ -1068,6 +1072,38 @@ public class AsgardioUserStoreManager extends UniqueIDJDBCUserStoreManager {
             throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_GETTING_TENANT_UUID, tenantId);
         }
         return tenantUuid;
+    }
+
+    /**
+     * Validate the association of the users list with the tenant.
+     *
+     * @param userIDList List of UUIDs of the users.
+     * @throws UserStoreException If an error occurred while validating or the users does not have any validations.
+     */
+    private void validateAssociations(String[] userIDList) throws UserStoreException {
+
+        String sqlStmt = buildSQLStmtWithUsersList(CaseInsensitiveSQLConstants.COUNT_ASSOCIATIONS_FOR_USERS_SQL,
+                Arrays.asList(userIDList.clone()));
+        try (Connection dbConnection = getDataBaseConnection();
+             PreparedStatement prepStmt = dbConnection.prepareStatement(sqlStmt)) {
+            String tenantUuid = getTenantUuidFromTenantID(tenantId);
+            prepStmt.setString(1, tenantUuid);
+            try (ResultSet rs = prepStmt.executeQuery()) {
+                long count = 0;
+                if (rs.next()) {
+                    count = rs.getLong("RESULT");
+                }
+                if (count == userIDList.length) {
+                    return;
+                }
+                throw new UserStoreClientException(String.format(ErrorMessage.ERROR_CODE_NO_ASC_WITH_TENANT.
+                                getDescription(), tenantUuid), ErrorMessage.ERROR_CODE_NO_ASC_WITH_TENANT.getCode());
+            } catch (Exception exception) {
+                throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_WHILE_VALIDATING_ASC);
+            }
+        } catch (SQLException exception) {
+            throw handleException(exception, ErrorMessage.ERROR_CODE_ERROR_WHILE_VALIDATING_ASC);
+        }
     }
 
     private String buildSQLStmtWithUsersList(String sqlStmt, List<String> users) {
